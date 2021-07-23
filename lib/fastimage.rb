@@ -605,6 +605,7 @@ class FastImage
     private
 
     def read_boxes!(max_read_bytes = nil)
+      puts 'READ_BOXES !!'
       end_pos = max_read_bytes.nil? ? nil : @stream.pos + max_read_bytes
       index = 0
 
@@ -612,6 +613,7 @@ class FastImage
         return if end_pos && @stream.pos >= end_pos
 
         box_type, box_size = read_box_header!
+        puts "> #{box_type} #{box_size}"
 
         case box_type
         when "meta"
@@ -626,7 +628,47 @@ class FastImage
           read_boxes!(box_size)
         when "ispe"
           handle_ispe_box(box_size, index)
+        when "iinf"
+          @stream.read(6)
+          read_boxes!(box_size-6)
+          # exit
+          # puts 'HEADER', read_box_header!
+          # data = @stream.read(16)
+          # puts data
+          # read_boxes!(box_size)
+          # exit
+          # read_boxes!(box_size)
+        when 'iloc'
+          puts 'ILOC !!'
+          @stream.read(4)
+          read_boxes!(box_size-4)
+          # puts read_uint8!
+          # puts "#{@stream.read(box_size - 8).chars}"
+        when  'infe'
+          # @stream.read(8)
+          # puts "#{@stream.read(8).chars}"
+          @stream.read(2)
+          id=read_uint32!
+          @stream.read(2)
+          item_type = @stream.read(4)
+          puts "infe id=#{id} item_type=#{item_type}"
+          if item_type == 'Exif'
+            puts "EXIF id = #{id}"
+            # begin
+              # @stream.read(12)
+              # puts "#{@stream.read(1000)}"
+            # new_exif = Exif.new(@stream)
+            # rescue Exception => e
+            #   puts e
+            # end
+            # puts 'AFTER EXIFS!!'
+          end
+          @stream.read(box_size - 12)
+          # data = @stream.read(box_size)
         when "mdat"
+          puts "#{@stream.read(60).chars}"
+          read_boxes!(box_size)
+          puts 'DONE mDAT !!'
           throw :finish
         else
           @stream.read(box_size)
@@ -634,6 +676,7 @@ class FastImage
 
         index += 1
       end
+      puts 'END BOXES!'
     end
 
     def handle_ispe_box(box_size, index)
@@ -678,6 +721,7 @@ class FastImage
     end
 
     def handle_meta_box(box_size)
+      puts 'META BOX !!', box_size
       throw :finish if box_size < 4
 
       @stream.read(4)
@@ -688,6 +732,7 @@ class FastImage
       primary_indices = @ipma_boxes
                         .select { |box| box[:id] == @primary_box }
                         .map { |box| box[:property_index] }
+      puts primary_indices.inspect
 
       ispe_box = @ispe_boxes.find do |box|
         primary_indices.include?(box[:index])
@@ -697,7 +742,7 @@ class FastImage
         @final_size = ispe_box[:size]
       end
 
-      throw :finish
+      # throw :finish
     end
 
     def read_box_header!
@@ -907,6 +952,7 @@ class FastImage
 
     def initialize(stream)
       @stream = stream
+      puts "DEBUG EXIF #{stream.read(100).chars}"
       @width, @height, @orientation = nil
       parse_exif
     end
